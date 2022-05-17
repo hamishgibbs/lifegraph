@@ -2,7 +2,7 @@ class Schema():
 
     def __init__(self, testing=False):
 
-        self.leaf_types = ["string"]
+        self.leaf_types = ["string", "integer"]
 
         if testing:
             self.schema = {}
@@ -25,7 +25,7 @@ class Schema():
         self.changelog.append(("CREATE", "TYPE", id))
 
     def check_if_type_is_in_schema(self, id):
-        return id in self.schema.keys()
+        return id in self.get_accepted_schema_values() + list(self.schema.keys())
 
     def check_if_property_is_on_type(self, id, property):
         self.raise_if_type_not_in_schema(id)
@@ -64,24 +64,96 @@ class Schema():
         except AssertionError:
             raise AssertionError(f"Type {id} has no parent.")
 
+    def get_child_ids(self, id):
+        """hacky hacky. seems to work."""
+
+        no_parent = [x for x in self.schema.keys() if "@parent" not in self.schema[x].keys()]
+        parent = [x for x in self.schema.keys() if "@parent" in self.schema[x].keys()]
+
+        inheritance = []
+        for _id in no_parent + parent:
+            if "@parent" in self.schema[_id].keys():
+                inheritance.append(set([self.schema[_id]["@parent"], _id]))
+
+        children_candidates = set()
+        for rel in inheritance:
+            if id in rel:
+                children_candidates.update(rel)
+            if not rel.isdisjoint(children_candidates):
+                children_candidates.update(rel)
+
+        children = set()
+        for _id in children_candidates:
+            if "@parent" in self.schema[_id].keys():
+                children.update([_id])
+        if id in children:
+            children.remove(id)
+
+        return children
+
+    def get_parent_ids(self, id, parents=set()):
+        try:
+            parents.update([self.schema[id]["@parent"]])
+            self.get_parent_ids(self.schema[id]["@parent"], parents=parents)
+        except KeyError:
+            pass
+        return parents
+
+    def get_parent_properties(self, id):
+        parents = self.get_parent_ids(id)
+        parent_properties = []
+        for _id in parents:
+            for property in self.schema[_id]["properties"].keys():
+                parent_properties.append((_id, property))
+        return parent_properties
+
+    def check_if_property_is_from_a_parent(self, id, property):
+        parent_properties = self.get_parent_properties(id)
+        return property in [x[1] for x in parent_properties]
+
+    def raise_if_property_is_from_a_parent(self, id, property):
+        try:
+            assert not self.check_if_property_is_from_a_parent(id, property)
+        except AssertionError:
+            raise AssertionError(f"Property {property} is an inherited property for type {id}.")
+
     def add_property(self, id, property, value_id):
         self.raise_if_type_not_in_schema(id)
+        self.raise_if_type_not_in_schema(value_id)
         self.raise_if_property_is_on_type(id, property)
         self.schema[id]["properties"][property] = value_id
         self.changelog.append(("CREATE", "PROPERTY", property, "VALUE", value_id, "ON", id))
+        children = self.get_child_ids(id)
+        for child in children:
+            self.add_property(child, property, value_id)
 
-    def edit_property(self, id, property, value_id):
+    def edit_property(self, id, property, value_id, auto=False):
         self.raise_if_type_not_in_schema(id)
+        self.raise_if_type_not_in_schema(value_id)
         self.raise_if_property_not_on_type(id, property)
+
+        if not auto:
+            self.raise_if_property_is_from_a_parent(id, property)
+
         old_value_id = self.schema[id]["properties"][property]
         self.schema[id]["properties"][property] = value_id
         self.changelog.append(("UPDATE", "PROPERTY", property, "FROM", "VALUE", old_value_id, "TO", "VALUE", value_id, "ON", id))
+        children = self.get_child_ids(id)
+        for child in children:
+            self.edit_property(child, property, value_id, auto=True)
 
-    def remove_property(self, id, property):
+    def remove_property(self, id, property, auto=False):
         self.raise_if_type_not_in_schema(id)
         self.raise_if_property_not_on_type(id, property)
+
+        if not auto:
+            self.raise_if_property_is_from_a_parent(id, property)
+
         self.schema[id]["properties"].pop(property)
         self.changelog.append(("REMOVE", "PROPERTY", property, "ON", id))
+        children = self.get_child_ids(id)
+        for child in children:
+            self.remove_property(child, property, auto=True)
 
     def make_child(self, id, parent_id):
         self.raise_if_type_not_in_schema(id)

@@ -90,4 +90,6 @@ Then need to audit data relative to current schema (and apply changes to data wh
 Then need to come up with way of getting data into the schema
 
 migration of some data to a different schema representation may be interesting at some point
+
+TODO: you cannot edit a parent's property on a child
 """
