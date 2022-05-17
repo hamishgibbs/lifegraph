@@ -1,4 +1,3 @@
-
 class Schema():
 
     def __init__(self, testing=False):
@@ -50,6 +49,21 @@ class Schema():
         except AssertionError:
             raise AssertionError(f"Type {id} has no property {property}.")
 
+    def check_if_type_has_parent(self, id):
+        return "@parent" in self.schema[id].keys()
+
+    def raise_if_type_has_parent(self, id):
+        try:
+            assert not self.check_if_type_has_parent(id)
+        except AssertionError:
+            raise AssertionError(f"Type {id} has existing parent {self.schema[id]['@parent']}.")
+
+    def raise_if_type_has_no_parent(self, id):
+        try:
+            assert self.check_if_type_has_parent(id)
+        except AssertionError:
+            raise AssertionError(f"Type {id} has no parent.")
+
     def add_property(self, id, property, value_id):
         self.raise_if_type_not_in_schema(id)
         self.raise_if_property_is_on_type(id, property)
@@ -59,12 +73,33 @@ class Schema():
     def edit_property(self, id, property, value_id):
         self.raise_if_type_not_in_schema(id)
         self.raise_if_property_not_on_type(id, property)
-        previous_value_id = self.schema[id]["properties"][property]
+        old_value_id = self.schema[id]["properties"][property]
         self.schema[id]["properties"][property] = value_id
-        self.changelog.append(("UPDATE", "PROPERTY", property, "FROM", "VALUE", previous_value_id, "TO", "VALUE", value_id, "ON", id))
+        self.changelog.append(("UPDATE", "PROPERTY", property, "FROM", "VALUE", old_value_id, "TO", "VALUE", value_id, "ON", id))
 
     def remove_property(self, id, property):
         self.raise_if_type_not_in_schema(id)
         self.raise_if_property_not_on_type(id, property)
         self.schema[id]["properties"].pop(property)
         self.changelog.append(("REMOVE", "PROPERTY", property, "ON", id))
+
+    def make_child(self, id, parent_id):
+        self.raise_if_type_not_in_schema(id)
+        self.raise_if_type_not_in_schema(parent_id)
+        self.raise_if_type_has_parent(id)
+        self.schema[id]["@parent"] = parent_id
+        self.changelog.append(("CREATE", "PARENT", parent_id, "ON", id))
+
+    def edit_parent(self, id, parent_id):
+        self.raise_if_type_not_in_schema(id)
+        self.raise_if_type_not_in_schema(parent_id)
+        self.raise_if_type_has_no_parent(id)
+        old_parent_id = self.schema[id]["@parent"]
+        self.schema[id]["@parent"] = parent_id
+        self.changelog.append(("UPDATE", "PARENT", "FROM", "VALUE", old_parent_id, "TO", "VALUE", parent_id, "ON", id))
+
+    def remove_parent(self, id):
+        self.raise_if_type_not_in_schema(id)
+        self.raise_if_type_has_no_parent(id)
+        self.schema[id].pop("@parent")
+        self.changelog.append(("REMOVE", "PARENT", "ON", id))

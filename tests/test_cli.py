@@ -99,3 +99,82 @@ def test_remove_property_raises_when_property_does_not_exist():
     with pytest.raises(AssertionError) as exc_info:
         schema.remove_property("person", "name")
     assert exc_info.value.args[0] == 'Type person has no property name.'
+
+def test_make_child():
+    schema = Schema(testing=True)
+    schema.create_type("adult")
+    schema.create_type("human")
+    schema.make_child("adult", "human")
+    assert len(schema.changelog) == 3
+    assert schema.changelog[2] == ("CREATE", "PARENT", "human", "ON", "adult")
+
+def test_make_child_raises_when_type_is_missing():
+    schema = Schema(testing=True)
+    with pytest.raises(AssertionError) as exc_info:
+        schema.make_child("adult", "human")
+    assert exc_info.value.args[0] == 'Type adult not in schema.'
+    schema.create_type("adult")
+    with pytest.raises(AssertionError) as exc_info:
+        schema.make_child("adult", "human")
+    assert exc_info.value.args[0] == 'Type human not in schema.'
+
+def test_make_child_raises_if_type_has_parent():
+    schema = Schema(testing=True)
+    schema.create_type("human")
+    schema.create_type("adult")
+    schema.make_child("adult", "human")
+    with pytest.raises(AssertionError) as exc_info:
+        schema.make_child("adult", "human")
+    assert exc_info.value.args[0] == 'Type adult has existing parent human.'
+
+def test_edit_parent():
+    schema = Schema(testing=True)
+    schema.create_type("adult")
+    schema.create_type("human")
+    schema.create_type("person")
+    schema.make_child("adult", "human")
+    schema.edit_parent("adult", "person")
+    assert len(schema.changelog) == 5
+    assert schema.changelog[4] == ("UPDATE", "PARENT", "FROM", "VALUE", "human", "TO", "VALUE", "person", "ON", "adult")
+
+def test_edit_parent_raises_when_type_is_missing():
+    schema = Schema(testing=True)
+    with pytest.raises(AssertionError) as exc_info:
+        schema.edit_parent("adult", "human")
+    assert exc_info.value.args[0] == 'Type adult not in schema.'
+    schema.create_type("adult")
+    with pytest.raises(AssertionError) as exc_info:
+        schema.edit_parent("adult", "human")
+    assert exc_info.value.args[0] == 'Type human not in schema.'
+
+def test_edit_parent_raises_when_type_has_no_parent():
+    schema = Schema(testing=True)
+    schema.create_type("adult")
+    schema.create_type("human")
+    with pytest.raises(AssertionError) as exc_info:
+        schema.edit_parent("adult", "human")
+    assert exc_info.value.args[0] == 'Type adult has no parent.'
+
+def test_remove_parent():
+    schema = Schema(testing=True)
+    schema.create_type("adult")
+    schema.create_type("human")
+    schema.make_child("adult", "human")
+    schema.remove_parent("adult")
+    assert "@parent" not in schema.schema["adult"].keys()
+    assert len(schema.changelog) == 4
+    assert schema.changelog[3] == ("REMOVE", "PARENT", "ON", "adult")
+
+def test_remove_parent_raises_when_type_is_missing():
+    schema = Schema(testing=True)
+    with pytest.raises(AssertionError) as exc_info:
+        schema.remove_parent("adult")
+    assert exc_info.value.args[0] == 'Type adult not in schema.'
+
+def test_remove_parent_raises_when_type_has_no_parent():
+    schema = Schema(testing=True)
+    schema.create_type("adult")
+    schema.create_type("human")
+    with pytest.raises(AssertionError) as exc_info:
+        schema.remove_parent("adult")
+    assert exc_info.value.args[0] == 'Type adult has no parent.'
