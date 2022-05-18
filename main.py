@@ -57,33 +57,34 @@ Ensure that every inherited type has all the keys of its parent (recorded explic
 
 add @person -> name -> string
     if type doesn't exist
-        CREATED @person
+        CREATED @person X
     if this property doesn't exist on this type
-        ADDPROPERTY name TO @person
+        ADDPROPERTY name TO @person X
         if this type is a parent of other types ADDPROPERTY to children
 
 remove @company -> country
     if this property is not inherited from a parent
-        REMOVEPROPERTY country FROM @company
+        REMOVEPROPERTY country FROM @company X
 
 change @person -> country -> geo_container
     if this property is not inherited from a parent
-    CHANGEPROPERTY country FROM @company TO geo_container
+    CHANGEPROPERTY country FROM @company TO geo_container X
 
 "rename" @person -> country -> region
     this should propagate to the data
 
-makeparent -> @human -> @child
+makeparent -> @human -> @child X
 
-removeparent -> @human -> @child
+removeparent -> @human -> @child X
 
-editparent -> @human -> @child
+editparent -> @human -> @child X
 
-1. set up cli to edit schema files
-    write command
-    check command
-    edit schema
-    edit any other schema necessary
+NEXT:
+    1. set up cli to edit schema files
+        write command
+        check command
+        edit schema
+        edit any other schema necessary
 
 
 Then need to audit data relative to current schema (and apply changes to data when the schema is changed)
