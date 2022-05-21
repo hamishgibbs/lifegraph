@@ -173,25 +173,18 @@ class Graph:
         ).agg({"pointed_id": [pd.Series.nunique, "count"]})
         depth_groups_summarised.columns = ["depth", "aggregation_type", "n_groups", "aggregation_proportion"]
         depth_groups_summarised["aggregation_proportion"] = depth_groups_summarised["aggregation_proportion"] / len(ids)
-        print(depth_groups_summarised)
-        # what data structure can be used to immediately inform the aggregation?
-        # i.e. OK - I want aggregation number 5, then lets do it
-        # group_ids or short description, number that will be left out
-        # am I just designing a fucking SQL database? - no I don't think so
-        # I am just designing a fucking graph database though
+        return depth_groups_summarised
 
-    def disaggregation_paths(self, id):
-        # paths that could be used to disaggregate a collection of ids
-        # will this even work? I don't think so
-        return False
+    # actually implement aggregation for given categorical aggregation(s)
 
-    # smartcopy id <- copy everything that is not unique about this record to another record
+
     # change property on graph should be implemented to check that a property exists on an entity and
     # make sure new thing points to the correct type, validate input data
 
-    # disaggregate a parent type into a child type (i.e. states into cities - hierarchy also doesn't work this way!)
-    # aggregate child types into parent type groups (i.e. cities into parent states? - hierarchy doesn't work this way?)
-    #    maybe you need types to describe different relationships (like spatial containment?)
+    # then actually try to the the graph for something simple, then something messy & record the pain points (changing / migrating schema etc)
+    # feeling like i don't exactly know what I am doing - do the simple things, then try to use it
+    # what is the application of the aggregation?
+
     # swap - switch group chartacteristics at same level (i.e. gender male vs. gender female)
     # query and generalise from graph
     # migrate data to another type?
