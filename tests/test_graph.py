@@ -243,5 +243,4 @@ def test_aggregation_paths(mock_graph_with_duration_statistic):
     graph.graph[stat_id2]["value"] = 50
     graph.graph[stat_id2]["location"] = city_id1
 
-    graph.aggregation_paths([stat_id1, stat_id2])
-    assert False
+    graph.categorical_aggregation_paths([stat_id1, stat_id2])

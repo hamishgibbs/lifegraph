@@ -4,6 +4,7 @@ from uuid import uuid4
 from schema import Schema
 from fuzzywuzzy import process
 import pandas as pd
+import logging
 
 class Graph:
     def __init__(self, data_path=None):

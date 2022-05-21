@@ -1,4 +1,5 @@
 import json
+import logging
 
 class Schema():
 
@@ -9,10 +10,14 @@ class Schema():
 
         if not self.data_path:
             self.schema = {}
-            self.changelog = []
         else:
             self.schema = self.load_schema()
-            self.changelog = self.load_changelog()
+            logging.basicConfig(
+                filename="./data/schema.log",
+                encoding='utf-8',
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                level=self.logger.info)
+        self.logger = logging.getLogger(__name__)
 
     def get_accepted_schema_values(self):
         return self.leaf_types + list(self.schema.keys())
@@ -21,26 +26,17 @@ class Schema():
         with open(f"{self.data_path}/schema.json", "r") as f:
             return json.load(f)
 
-    def load_changelog(self):
-        with open(f"{self.data_path}/changelog.json", "r") as f:
-            return json.load(f)
-
     def save_schema(self):
         with open(f"{self.data_path}/schema.json", "w") as f:
             json.dump(self.schema, f, indent=4, sort_keys=True)
 
-    def save_changelog(self):
-        with open(f"{self.data_path}/changelog.json", "w") as f:
-            json.dump(self.changelog, f, indent=4, sort_keys=True)
-
     def close(self):
         self.save_schema()
-        self.save_changelog()
 
     def create_type(self, id):
         self.raise_if_type_in_schema(id)
         self.schema[id] = {"properties": {}}
-        self.changelog.append(("CREATE", "TYPE", id))
+        self.logger.info(f"CREATE TYPE {id}")
 
     def show_type(self, id):
         self.raise_if_type_not_in_schema(id)
@@ -150,7 +146,7 @@ class Schema():
         self.raise_if_type_not_in_schema(value_id)
         self.raise_if_property_is_on_type(id, property)
         self.schema[id]["properties"][property] = value_id
-        self.changelog.append(("CREATE", "PROPERTY", property, "VALUE", value_id, "ON", id))
+        self.logger.info(f"CREATE PROPERTY {property} VALUE {value_id} ON TYPE {id}")
         children = self.get_child_ids(id)
         for child in children:
             self.add_property(child, property, value_id)
@@ -165,7 +161,7 @@ class Schema():
 
         old_value_id = self.schema[id]["properties"][property]
         self.schema[id]["properties"][property] = value_id
-        self.changelog.append(("UPDATE", "PROPERTY", property, "FROM", "VALUE", old_value_id, "TO", "VALUE", value_id, "ON", id))
+        self.logger.info(f"UPDATE PROPERTY {property} FROM VALUE {old_value_id} TO VALUE {value_id} ON TYPE {id}")
         children = self.get_child_ids(id)
         for child in children:
             self.edit_property(child, property, value_id, auto=True)
@@ -178,7 +174,7 @@ class Schema():
             self.raise_if_property_is_from_a_parent(id, property)
 
         self.schema[id]["properties"].pop(property)
-        self.changelog.append(("REMOVE", "PROPERTY", property, "ON", id))
+        self.logger.info(f"REMOVE PROPERTY {property} ON TYPE {id}")
         children = self.get_child_ids(id)
         for child in children:
             self.remove_property(child, property, auto=True)
@@ -188,7 +184,7 @@ class Schema():
         self.raise_if_type_not_in_schema(parent_id)
         self.raise_if_type_has_parent(id)
         self.schema[id]["@parent"] = parent_id
-        self.changelog.append(("CREATE", "PARENT", parent_id, "ON", id))
+        self.logger.info(f"CREATE PARENT {parent_id} ON TYPE {id}")
 
     def edit_parent(self, id, parent_id):
         self.raise_if_type_not_in_schema(id)
@@ -196,13 +192,13 @@ class Schema():
         self.raise_if_type_has_no_parent(id)
         old_parent_id = self.schema[id]["@parent"]
         self.schema[id]["@parent"] = parent_id
-        self.changelog.append(("UPDATE", "PARENT", "FROM", "VALUE", old_parent_id, "TO", "VALUE", parent_id, "ON", id))
+        self.logger.info(f"UPDATE PARENT FROM VALUE {old_parent_id} TO VALUE {parent_id} ON TYPE {id}")
 
     def remove_parent(self, id):
         self.raise_if_type_not_in_schema(id)
         self.raise_if_type_has_no_parent(id)
         self.schema[id].pop("@parent")
-        self.changelog.append(("REMOVE", "PARENT", "ON", id))
+        self.logger.info(f"REMOVE PARENT ON TYPE {id}")
 
     def get_all_string_properties(self):
         string_properties = []

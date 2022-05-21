@@ -11,7 +11,6 @@ def test_create_type():
     schema = Schema(data_path=None)
     schema.create_type("person")
     assert schema.schema["person"] == {"properties": {}}
-    assert schema.changelog[0] == ("CREATE", "TYPE", "person")
 
 def test_create_type_raises_if_type_exists():
     schema = Schema(data_path=None)
@@ -50,8 +49,6 @@ def test_add_property():
     schema.add_property("person", "name", "string")
 
     assert schema.schema["person"] == {"properties": {"name": "string"}}
-    assert len(schema.changelog) == 2
-    assert schema.changelog[1] == ("CREATE", "PROPERTY", "name", "VALUE", "string", "ON", "person")
 
 def test_check_if_property_is_on_type():
     schema = Schema(data_path=None)
@@ -80,8 +77,6 @@ def test_edit_property():
     schema.add_property("person", "name", "string")
     schema.edit_property("person", "name", "person")
     assert schema.schema["person"]["properties"]["name"] == "person"
-    assert len(schema.changelog) == 3
-    assert schema.changelog[2] == ("UPDATE", "PROPERTY", "name", "FROM", "VALUE", "string", "TO", "VALUE", "person", "ON", "person")
 
 def test_edit_property_raises_when_type_is_missing():
     schema = Schema(data_path=None)
@@ -100,11 +95,8 @@ def test_remove_property():
     schema = Schema(data_path=None)
     schema.create_type("person")
     schema.add_property("person", "name", "string")
-    assert len(schema.changelog) == 2
     schema.remove_property("person", "name")
     assert "name" not in schema.schema["person"]["properties"].keys()
-    assert len(schema.changelog) == 3
-    assert schema.changelog[2] == ("REMOVE", "PROPERTY", "name", "ON", "person")
 
 def test_remove_property_raises_when_type_is_missing():
     schema = Schema(data_path=None)
@@ -124,8 +116,6 @@ def test_make_parent():
     schema.create_type("adult")
     schema.create_type("human")
     schema.make_parent("human", "adult")
-    assert len(schema.changelog) == 3
-    assert schema.changelog[2] == ("CREATE", "PARENT", "human", "ON", "adult")
 
 def test_make_parent_raises_when_type_is_missing():
     schema = Schema(data_path=None)
@@ -153,8 +143,6 @@ def test_edit_parent():
     schema.create_type("person")
     schema.make_parent("human", "adult")
     schema.edit_parent("adult", "person")
-    assert len(schema.changelog) == 5
-    assert schema.changelog[4] == ("UPDATE", "PARENT", "FROM", "VALUE", "human", "TO", "VALUE", "person", "ON", "adult")
 
 def test_edit_parent_raises_when_type_is_missing():
     schema = Schema(data_path=None)
@@ -181,8 +169,6 @@ def test_remove_parent():
     schema.make_parent("human", "adult")
     schema.remove_parent("adult")
     assert "@parent" not in schema.schema["adult"].keys()
-    assert len(schema.changelog) == 4
-    assert schema.changelog[3] == ("REMOVE", "PARENT", "ON", "adult")
 
 def test_remove_parent_raises_when_type_is_missing():
     schema = Schema(data_path=None)
@@ -242,9 +228,6 @@ def test_add_property_recursively():
     schema.create_type("child")
     schema.make_parent("human", "child")
     schema.add_property("human", "name", "string")
-    assert len(schema.changelog) == 5
-    assert schema.changelog[3] == ("CREATE", "PROPERTY", "name", "VALUE", "string", "ON", "human")
-    assert schema.changelog[4] == ("CREATE", "PROPERTY", "name", "VALUE", "string", "ON", "child")
 
 def test_edit_property_recursively():
     schema = Schema(data_path=None)
@@ -254,9 +237,6 @@ def test_edit_property_recursively():
     schema.make_parent("human", "child")
     schema.add_property("human", "name", "string")
     schema.edit_property("human", "name", "human_name")
-    assert len(schema.changelog) == 8
-    assert schema.changelog[6] == ("UPDATE", "PROPERTY", "name", "FROM", "VALUE", "string", "TO", "VALUE", "human_name", "ON", "human")
-    assert schema.changelog[7] == ("UPDATE", "PROPERTY", "name", "FROM", "VALUE", "string", "TO", "VALUE", "human_name", "ON", "child")
 
 def test_remove_property_recursively():
     schema = Schema(data_path=None)
@@ -266,10 +246,7 @@ def test_remove_property_recursively():
     schema.make_parent("human", "child")
     schema.add_property("human", "name", "string")
     schema.remove_property("human", "name")
-    assert len(schema.changelog) == 8
-    assert schema.changelog[6] == ("REMOVE", "PROPERTY", "name", "ON", "human")
-    assert schema.changelog[7] == ("REMOVE", "PROPERTY", "name", "ON", "child")
-
+    
 def test_get_parent_ids():
     schema = Schema(data_path=None)
     schema.create_type("thing")
