@@ -37,7 +37,9 @@ class Graph:
         data['@type'] = type
         for k, v in type_model["properties"].items():
             data[k] = v
-        self.graph[str(uuid4())] = data
+        uuid = str(uuid4())
+        self.graph[uuid] = data
+        return uuid
 
     def audit_entities_have_schema_properties(self, audit_results):
         for k in self.graph.keys():
@@ -73,15 +75,36 @@ class Graph:
     def get_ids_of_type(self, type):
         return [x for x in self.graph.keys() if self.graph[x]["@type"] == type]
 
+    def raise_if_id_not_in_graph(self, id):
+        try:
+            assert id in self.graph.keys()
+        except AssertionError:
+            raise AssertionError(f"Entity {id} not in graph.")
+
     def audit(self):
-        # strict? which would mean no unknown values for certain types?
         audit_results = []
         audit_results = self.audit_entities_have_schema_properties(audit_results)
         audit_results = self.audit_entity_properties_point_to_correct_type(audit_results)
         return audit_results
 
-    # copy data from one id to a new one
+    def create_from_copy(self, id):
+        self.raise_if_id_not_in_graph(id)
+        uuid = str(uuid4())
+        self.graph[uuid] = self.graph[id]
+        return uuid
+
+    def create_from_smart_copy(self, id):
+        self.raise_if_id_not_in_graph(id)
+        print(id)
+        #uuid = str(uuid4())
+        #self.graph[uuid] = self.graph[id]
+        #return uuid
+
     # smartcopy id <- copy everything that is not unique about this record to another record
+    # disaggregate a parent type into a child type (i.e. states into cities - hierarchy also doesn't work this way!)
+    # aggregate child types into parent type groups (i.e. cities into parent states? - hierarchy doesn't work this way?)
+    #    maybe you need types to describe different relationships (like spatial containment?)
+    # swap - switch group chartacteristics at same level (i.e. gender male vs. gender female)
     # query and generalise from graph
     # migrate data to another type?
     # integrate and test compute transformers against the current schema to ensure that they work
@@ -89,6 +112,8 @@ class Graph:
 
 if __name__ == '__main__':
     graph = Graph(data_path="./data")
-    graph.create_from_type("person")
+    person_id = graph.create_from_type("person")
+    graph.create_from_copy(person_id)
     print(graph.graph)
+
     graph.save_graph()

@@ -8,6 +8,16 @@ def mock_graph_with_person_schema():
     graph.schema.add_property("person", "name", "string")
     return graph
 
+@pytest.fixture()
+def mock_graph_with_person_hometown_schema():
+    graph = Graph(data_path=None)
+    graph.schema.create_type("person")
+    graph.schema.create_type("city")
+    graph.schema.add_property("person", "name", "string")
+    graph.schema.add_property("person", "hometown", "city")
+    graph.schema.add_property("city", "name", "string")
+    return graph
+
 def test_create_from_type(mock_graph_with_person_schema):
     graph = mock_graph_with_person_schema
     graph.create_from_type("person")
@@ -90,3 +100,30 @@ def test_audit_entity_properties_point_to_correct_type_fails_with_pointed_type(m
     audit_results = graph.audit_entity_properties_point_to_correct_type(audit_results)
     assert len(audit_results) == 1
     assert "type person. Expected type city." in audit_results[0]
+
+def test_raise_if_id_not_in_graph(mock_graph_with_person_schema):
+    graph = mock_graph_with_person_schema
+    with pytest.raises(AssertionError) as exc_info:
+        graph.raise_if_id_not_in_graph("id")
+    assert exc_info.value.args[0] == "Entity id not in graph."
+
+def test_create_from_copy(mock_graph_with_person_schema):
+    graph = mock_graph_with_person_schema
+    person_id = graph.create_from_type("person")
+    copy_id = graph.create_from_copy(person_id)
+    assert len(graph.graph.keys()) == 2
+    assert graph.graph[person_id] == graph.graph[copy_id]
+
+def test_create_from_smart_copy(mock_graph_with_person_hometown_schema):
+    graph = mock_graph_with_person_hometown_schema
+    """
+    (a, name, hamish)
+    (b, name, peter)
+    (a, hometown, syracuse)
+    (b, hometown, syracuse)
+    - no need to chase down the connections, right?
+    """
+    # this one is going to be hard! Sets the structure for generalisation also
+
+    print(graph)
+    assert False
