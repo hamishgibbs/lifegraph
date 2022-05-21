@@ -89,10 +89,10 @@ NEXT:
 
 Then need to audit data relative to current schema (and apply changes to data when the schema is changed) X
 
-smart copy
-search
-csv to graph
+smart copy X
+search X
 hierarchy
+csv to graph
 summary
 
 Then need to come up with way of getting data into the schema

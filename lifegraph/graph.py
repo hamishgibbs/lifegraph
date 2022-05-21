@@ -2,6 +2,8 @@ import os
 import json
 from uuid import uuid4
 from schema import Schema
+from fuzzywuzzy import process
+import pandas as pd
 
 class Graph:
     def __init__(self, data_path=None):
@@ -36,7 +38,7 @@ class Graph:
         data = {}
         data['@type'] = type
         for k, v in type_model["properties"].items():
-            data[k] = v
+            data[k] = "UNKNOWN"
         uuid = str(uuid4())
         self.graph[uuid] = data
         return uuid
@@ -61,14 +63,19 @@ class Graph:
             for property in entity.keys():
                 if property != "@type":
                     pointed_entity_id = entity[property]
-                    if pointed_entity_id not in self.schema.leaf_types:
-                        schema_expected_type = self.schema.schema[data_observed_type]["properties"][property]
+                    schema_expected_type = self.schema.schema[data_observed_type]["properties"][property]
+                    if schema_expected_type not in self.schema.leaf_types:
                         schema_expected_types = list(self.schema.get_child_ids(schema_expected_type)) + [schema_expected_type]
-                        data_pointed_type = self.graph[pointed_entity_id]["@type"]
+                        try:
+                            data_pointed_type = self.graph[pointed_entity_id]["@type"]
+                        except KeyError:
+                            audit_results.append(f"Entity '{k}' property '{property}' points to unknown entity '{pointed_entity_id}'. Expected type '{schema_expected_type}'.")
+                            continue
+
                         try:
                             assert data_pointed_type in schema_expected_types
-                        except:
-                            audit_results.append(f"Entity {k} property {property} points to entity {pointed_entity_id} of type {data_pointed_type}. Expected type {schema_expected_type}.")
+                        except AssertionError:
+                            audit_results.append(f"Entity '{k}' property '{property}' points to entity '{pointed_entity_id}' of type '{data_pointed_type}'. Expected type '{schema_expected_type}'.")
                             pass
         return audit_results
 
@@ -90,17 +97,98 @@ class Graph:
     def create_from_copy(self, id):
         self.raise_if_id_not_in_graph(id)
         uuid = str(uuid4())
-        self.graph[uuid] = self.graph[id]
+        self.graph[uuid] = self.graph[id].copy()
         return uuid
 
     def create_from_smart_copy(self, id):
+        # This should be abstracted and clarified - same for a few other methods
         self.raise_if_id_not_in_graph(id)
-        print(id)
-        #uuid = str(uuid4())
-        #self.graph[uuid] = self.graph[id]
-        #return uuid
+        group_type = self.graph[id]["@type"]
+        group_properties = self.schema.schema[group_type]["properties"].keys()
+        other_group_member_ids = [x for x in self.get_ids_of_type(group_type) if x != id]
+        unique_properties = []
+        for property in group_properties:
+            other_group_values = set([self.graph[x][property] for x in other_group_member_ids])
+            if self.graph[id][property] not in other_group_values:
+                unique_properties.append(property)
+        data = {}
+        data['@type'] = group_type
+        for property in group_properties:
+            if property in unique_properties:
+                data[property] = "UNKNOWN"
+            else:
+                data[property] = self.graph[id][property]
+        uuid = str(uuid4())
+        self.graph[uuid] = data
+        return uuid
+
+    def search(self, value, type=None):
+        # DEV: In the future this could also have a constraint for property name
+        if type:
+            search_ids = self.get_ids_of_type(type)
+        else:
+            search_ids = self.graph.keys()
+        search_properties = self.schema.get_all_string_properties()
+        search_candidates = []
+        for id in search_ids:
+            for type, property in search_properties:
+                if self.graph[id]["@type"] == type:
+                    search_candidates.append((id, self.graph[id][property]))
+        match = process.extract(value, [x[1] for x in search_candidates], limit=1)
+        return [x[0] for x in search_candidates if x[1] == match[0][0]]
+
+    def raise_if_ids_not_the_same_type(self, ids):
+        type = self.graph[ids[0]]["@type"]
+        id_types = set([self.graph[x]["@type"] for x in ids])
+        try:
+            assert set([type]) == id_types
+        except AssertionError:
+            raise AssertionError(f"IDs point to more than one type: {', '.join(list(id_types))}.")
+
+    def categorical_aggregation_paths(self, ids):
+        self.raise_if_ids_not_the_same_type(ids)
+        # paths that could be used to aggregate a collection of ids into categorical groups
+
+        print(json.dumps(self.graph, indent=4))
+
+        # in the future this will have to tolerate multiple pointed entities (i.e. multiple defense alliances)
+        ids_depth = [(0, x) for x in ids]
+        ids_to_explore = ids_depth
+        depth_groups = []
+        while len(ids_to_explore) > 0:
+            id = ids_to_explore[0]
+            id_type = self.graph[id[1]]["@type"]
+            schema_expected_properties = self.schema.schema[id_type]["properties"]
+            for property in self.graph[id[1]].keys():
+                if property != "@type":
+                    if schema_expected_properties[property] not in self.schema.leaf_types and id_type != schema_expected_properties[property]:
+                        pointed_entity_id = self.graph[id[1]][property]
+                        ids_to_explore.append((id[0]+1, pointed_entity_id))
+                        depth_groups.append((id[0], self.graph[pointed_entity_id]["@type"], pointed_entity_id))
+
+            del ids_to_explore[0]
+        depth_groups = pd.DataFrame(depth_groups, columns=["depth", "type", "pointed_id"])
+        depth_groups_summarised = depth_groups.groupby(
+            ["depth", "type"], as_index=False
+        ).agg({"pointed_id": [pd.Series.nunique, "count"]})
+        depth_groups_summarised.columns = ["depth", "aggregation_type", "n_groups", "aggregation_proportion"]
+        depth_groups_summarised["aggregation_proportion"] = depth_groups_summarised["aggregation_proportion"] / len(ids)
+        print(depth_groups_summarised)
+        # what data structure can be used to immediately inform the aggregation?
+        # i.e. OK - I want aggregation number 5, then lets do it
+        # group_ids or short description, number that will be left out
+        # am I just designing a fucking SQL database? - no I don't think so
+        # I am just designing a fucking graph database though
+
+    def disaggregation_paths(self, id):
+        # paths that could be used to disaggregate a collection of ids
+        # will this even work? I don't think so
+        return False
 
     # smartcopy id <- copy everything that is not unique about this record to another record
+    # change property on graph should be implemented to check that a property exists on an entity and
+    # make sure new thing points to the correct type, validate input data
+
     # disaggregate a parent type into a child type (i.e. states into cities - hierarchy also doesn't work this way!)
     # aggregate child types into parent type groups (i.e. cities into parent states? - hierarchy doesn't work this way?)
     #    maybe you need types to describe different relationships (like spatial containment?)
@@ -108,6 +196,15 @@ class Graph:
     # query and generalise from graph
     # migrate data to another type?
     # integrate and test compute transformers against the current schema to ensure that they work
+    # maybe there is a way to make this quicker without all of these fucking for loops in the future - no time now!!
+    # try aggreation with some really partial information
+
+    # fuck fuck - this isn't working - because type enforcement isn't conducive to having a country
+    # be a member of a continent and a defense alliance (they are not even usefully the same type)
+    # is a continent an organisation? no. is a defense alliance a land area? no.
+    # fuck fuck.
+    # but of course in the fucking real world - the UK is easily in both Europe and NATO. fucking fuck.
+    # go get some paper from the printer and work this out
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ def test_get_accepted_schema_value():
     schema = Schema(data_path=None)
     schema.create_type("person")
     accepted = schema.get_accepted_schema_values()
-    assert accepted == ["string", "integer", "person"]
+    assert accepted == ["string", "integer", "date", "person"]
 
 def test_create_type():
     schema = Schema(data_path=None)
@@ -328,3 +328,13 @@ def test_remove_property_if_property_is_from_a_parent():
     with pytest.raises(AssertionError) as exc_info:
         schema.remove_property("child", "name")
     assert exc_info.value.args[0] == 'Property name is an inherited property for type child.'
+
+def test_get_all_string_properties():
+    schema = Schema(data_path=None)
+    schema.create_type("human")
+    schema.create_type("child")
+    schema.make_parent("human", "child")
+    schema.add_property("human", "name", "string")
+    res = schema.get_all_string_properties()
+    assert ("child", "name") in res
+    assert ("human", "name") in res

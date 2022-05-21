@@ -5,7 +5,7 @@ class Schema():
     def __init__(self, data_path=None):
 
         self.data_path = data_path
-        self.leaf_types = ["string", "integer"]
+        self.leaf_types = ["string", "integer", "date"]
 
         if not self.data_path:
             self.schema = {}
@@ -203,3 +203,10 @@ class Schema():
         self.raise_if_type_has_no_parent(id)
         self.schema[id].pop("@parent")
         self.changelog.append(("REMOVE", "PARENT", "ON", id))
+
+    def get_all_string_properties(self):
+        string_properties = []
+        for type in self.schema.keys():
+            for property in self.schema[type]["properties"]:
+                string_properties.append((type, property))
+        return string_properties
