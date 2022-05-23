@@ -150,8 +150,6 @@ class Graph:
         self.raise_if_ids_not_the_same_type(ids)
         # paths that could be used to aggregate a collection of ids into categorical groups
 
-        print(json.dumps(self.graph, indent=4))
-
         # in the future this will have to tolerate multiple pointed entities (i.e. multiple defense alliances)
         ids_depth = [(0, x) for x in ids]
         ids_to_explore = ids_depth
@@ -165,14 +163,14 @@ class Graph:
                     if schema_expected_properties[property] not in self.schema.leaf_types and id_type != schema_expected_properties[property]:
                         pointed_entity_id = self.graph[id[1]][property]
                         ids_to_explore.append((id[0]+1, pointed_entity_id))
-                        depth_groups.append((id[0], self.graph[pointed_entity_id]["@type"], pointed_entity_id))
+                        depth_groups.append((id[0], property, self.graph[pointed_entity_id]["@type"], pointed_entity_id))
 
             del ids_to_explore[0]
-        depth_groups = pd.DataFrame(depth_groups, columns=["depth", "type", "pointed_id"])
+        depth_groups = pd.DataFrame(depth_groups, columns=["depth", "property", "type", "pointed_id"])
         depth_groups_summarised = depth_groups.groupby(
-            ["depth", "type"], as_index=False
+            ["depth", "property", "type"], as_index=False
         ).agg({"pointed_id": [pd.Series.nunique, "count"]})
-        depth_groups_summarised.columns = ["depth", "aggregation_type", "n_groups", "aggregation_proportion"]
+        depth_groups_summarised.columns = ["depth", "property", "aggregation_type", "n_groups", "aggregation_proportion"]
         depth_groups_summarised["aggregation_proportion"] = depth_groups_summarised["aggregation_proportion"] / len(ids)
         return depth_groups_summarised
 

@@ -241,6 +241,9 @@ def test_aggregation_paths(mock_graph_with_duration_statistic):
     stat_id2 = graph.create_from_copy(stat_id1)
     graph.graph[stat_id2]["time"] = "2019"
     graph.graph[stat_id2]["value"] = 50
-    graph.graph[stat_id2]["location"] = city_id1
+    graph.graph[stat_id2]["location"] = country_id1
 
-    graph.categorical_aggregation_paths([stat_id1, stat_id2])
+
+    # print(json.dumps(self.graph, indent=4))
+    print(graph.categorical_aggregation_paths([stat_id1, stat_id2]))
+    assert False

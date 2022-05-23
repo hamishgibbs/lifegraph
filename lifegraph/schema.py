@@ -13,10 +13,10 @@ class Schema():
         else:
             self.schema = self.load_schema()
             logging.basicConfig(
-                filename="./data/schema.log",
+                filename=f"{self.data_path}/schema.log",
                 encoding='utf-8',
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                level=self.logger.info)
+                level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
     def get_accepted_schema_values(self):
