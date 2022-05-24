@@ -1,6 +1,8 @@
 import pytest
 import json
 from graph import Graph
+import pandas as pd
+import statistics
 
 @pytest.fixture()
 def mock_graph_with_person_schema():
@@ -20,32 +22,15 @@ def mock_graph_with_person_hometown_schema():
     return graph
 
 @pytest.fixture()
-def mock_graph_with_duration_statistic():
+def mock_graph_with_person_with_country_continent():
     graph = Graph(data_path=None)
-    graph.schema.create_type("human_group_activity_duration_statistic")
-    graph.schema.create_type("group")
-    graph.schema.create_type("country")
-    graph.schema.create_type("city")
-    graph.schema.create_type("planet")
     graph.schema.create_type("continent")
-    graph.schema.create_type("defense_alliance")
-    graph.schema.create_type("activity")
-    graph.schema.add_property("group", "name", "string")
-    graph.schema.add_property("group", "group", "group")
-    graph.schema.add_property("city", "country", "country")
-    graph.schema.add_property("country", "name", "string")
+    graph.schema.create_type("country")
+    graph.schema.create_type("person")
+    graph.schema.add_property("person", "name", "string")
+    graph.schema.add_property("person", "age", "integer")
+    graph.schema.add_property("person", "location", "country")
     graph.schema.add_property("country", "continent", "continent")
-    graph.schema.add_property("country", "defense_alliance", "defense_alliance")
-    graph.schema.add_property("planet", "name", "string")
-    graph.schema.add_property("continent", "name", "string")
-    graph.schema.add_property("continent", "group", "planet")
-    graph.schema.add_property("defense_alliance", "name", "string")
-    graph.schema.add_property("activity", "name", "string")
-    graph.schema.add_property("human_group_activity_duration_statistic", "human_group", "group")
-    graph.schema.add_property("human_group_activity_duration_statistic", "location", "country")
-    graph.schema.add_property("human_group_activity_duration_statistic", "time", "date")
-    graph.schema.add_property("human_group_activity_duration_statistic", "value", "integer")
-    graph.schema.add_property("human_group_activity_duration_statistic", "activity", "activity")
     return graph
 
 def test_create_from_type(mock_graph_with_person_schema):
@@ -209,41 +194,113 @@ def test_raise_if_ids_not_the_same_type_raises(mock_graph_with_person_hometown_s
         graph.raise_if_ids_not_the_same_type([person_id1, city_id1])
     assert "IDs point to more than one type: " in exc_info.value.args[0]
 
-def test_aggregation_paths(mock_graph_with_duration_statistic):
-    graph = mock_graph_with_duration_statistic
-    group_id1 = graph.create_from_type("group")
-    group_id2 = graph.create_from_type("group")
-    planet_id1 = graph.create_from_type("planet")
-    continent_id1 = graph.create_from_type("continent")
-    defense_alliance_id1 = graph.create_from_type("defense_alliance")
-    country_id1 = graph.create_from_type("country")
-    city_id1 = graph.create_from_type("city")
-    stat_id1 = graph.create_from_type("human_group_activity_duration_statistic")
-    activity_id1 = graph.create_from_type("activity")
+def test_search_out_from_id_property(mock_graph_with_person_with_country_continent):
+    graph = mock_graph_with_person_with_country_continent
+    continent1 = graph.create_from_type("continent")
+    country1 = graph.create_from_type("country")
+    country2 = graph.create_from_type("country")
+    person1 = graph.create_from_type("person")
+    person2 = graph.create_from_type("person")
+    graph.edit_property(person1, "location", country1)
+    graph.edit_property(person2, "location", country2)
+    graph.edit_property(country1, "continent", continent1)
+    graph.edit_property(country2, "continent", continent1)
 
-    graph.graph[planet_id1]["name"] = "earth"
-    graph.graph[group_id1]["name"] = "humans"
-    graph.graph[group_id2]["name"] = "women"
-    graph.graph[group_id2]["group"] = group_id1
-    graph.graph[continent_id1]["name"] = "Europe"
-    graph.graph[continent_id1]["group"] = planet_id1
-    graph.graph[defense_alliance_id1]["name"] = "NATO"
-    graph.graph[country_id1]["name"] = "United Kingdom"
-    graph.graph[country_id1]["continent"] = continent_id1
-    graph.graph[country_id1]["defense_alliance"] = defense_alliance_id1
-    graph.graph[city_id1]["country"] = country_id1
-    graph.graph[activity_id1]["name"] = "Raising a child"
-    graph.graph[stat_id1]["human_group"] = group_id2
-    graph.graph[stat_id1]["location"] = country_id1
-    graph.graph[stat_id1]["time"] = "2020"
-    graph.graph[stat_id1]["value"] = 53
-    graph.graph[stat_id1]["activity"] = activity_id1
-    stat_id2 = graph.create_from_copy(stat_id1)
-    graph.graph[stat_id2]["time"] = "2019"
-    graph.graph[stat_id2]["value"] = 50
-    graph.graph[stat_id2]["location"] = country_id1
+    res = graph.search_out_from_id_property(person1, "location")
+    assert {
+        "original_id": person1,
+        "original_property": "location",
+        "depth": 0,
+        "pointing_property": "location",
+        "pointed_id": country1,
+        "pointed_id_type": "country"
+    } in res
+    assert {
+        "original_id": person1,
+        "original_property": "location",
+        "depth": 1,
+        "pointing_property": "continent",
+        "pointed_id": continent1,
+        "pointed_id_type": "continent"
+    } in res
 
+def test_categorical_aggregation_groups(mock_graph_with_person_with_country_continent):
+    graph = mock_graph_with_person_with_country_continent
+    continent1 = graph.create_from_type("continent")
+    country1 = graph.create_from_type("country")
+    country2 = graph.create_from_type("country")
+    person1 = graph.create_from_type("person")
+    person2 = graph.create_from_type("person")
+    graph.edit_property(person1, "location", country1)
+    graph.edit_property(person2, "location", country2)
+    graph.edit_property(country1, "continent", continent1)
+    graph.edit_property(country2, "continent", continent1)
 
-    # print(json.dumps(self.graph, indent=4))
-    print(graph.categorical_aggregation_paths([stat_id1, stat_id2]))
-    assert False
+    res = graph.categorical_aggregation_groups([person1, person2])
+    assert res.shape[0] == 4
+    assert res.iloc[0, :]['original_id'] == person1
+    assert res.iloc[0, :]['pointed_id'] == country1
+    assert res.iloc[1, :]['original_id'] == person1
+    assert res.iloc[1, :]['pointed_id'] == continent1
+
+def test_categorical_aggregation_paths(mock_graph_with_person_with_country_continent):
+    # also used in 2 tests above - move to fixture?
+    graph = mock_graph_with_person_with_country_continent
+    continent1 = graph.create_from_type("continent")
+    country1 = graph.create_from_type("country")
+    country2 = graph.create_from_type("country")
+    person1 = graph.create_from_type("person")
+    person2 = graph.create_from_type("person")
+    graph.edit_property(person1, "location", country1)
+    graph.edit_property(person2, "location", country2)
+    graph.edit_property(country1, "continent", continent1)
+    graph.edit_property(country2, "continent", continent1)
+    res = graph.categorical_aggregation_paths([person1, person2])
+    assert res.shape[0] == 2
+    assert res.shape[1] == 5
+    assert res.iloc[0, :]["aggregation_type"] == "country"
+    assert res.iloc[1, :]["aggregation_type"] == "continent"
+
+def test_categorical_aggregation(mock_graph_with_person_with_country_continent):
+    graph = mock_graph_with_person_with_country_continent
+    continent1 = graph.create_from_type("continent")
+    country1 = graph.create_from_type("country")
+    country2 = graph.create_from_type("country")
+    person1 = graph.create_from_type("person")
+    person2 = graph.create_from_type("person")
+    graph.edit_property(person1, "location", country1)
+    graph.edit_property(person2, "location", country2)
+    graph.edit_property(person1, "age", 18)
+    graph.edit_property(person2, "age", 22)
+    graph.edit_property(country1, "continent", continent1)
+    graph.edit_property(country2, "continent", continent1)
+    aggregation_paths = graph.categorical_aggregation_paths([person1, person2])
+
+    def agg_fun_mean(vals):
+        return statistics.mean(vals)
+
+    res = graph.categorical_aggregation(
+        ids = [person1, person2],
+        value_property = "age",
+        aggregation_fun = agg_fun_mean,
+        depth = aggregation_paths.iloc[0]["depth"],
+        pointing_property = aggregation_paths.iloc[0]["pointing_property"],
+        aggregation_type = aggregation_paths.iloc[0]["aggregation_type"])
+
+    assert {"value": 18, "group": country1} in res
+    assert {"value": 22, "group": country2} in res
+
+def test_get_expected_pointed_type(mock_graph_with_person_hometown_schema):
+    graph = mock_graph_with_person_hometown_schema
+    person_id = graph.create_from_type("person")
+    res = graph.get_expected_pointed_type(person_id, "name")
+    assert res == "string"
+    res = graph.get_expected_pointed_type(person_id, "hometown")
+    assert res == "city"
+
+def test_raise_if_id_not_expected_type_riases(mock_graph_with_person_hometown_schema):
+    graph = mock_graph_with_person_hometown_schema
+    city_id = graph.create_from_type("city")
+    with pytest.raises(AssertionError) as exc_info:
+        graph.raise_if_id_not_expected_type(city_id, "person")
+    assert exc_info.value.args[0] == f"Entity '{city_id}' has type 'city'. Expected type 'person'."

@@ -7,10 +7,11 @@ class Schema():
 
         self.data_path = data_path
         self.leaf_types = ["string", "integer", "date"]
-
-        if not self.data_path:
+        
+        if self.data_path is None:
             self.schema = {}
         else:
+            print("HEY!")
             self.schema = self.load_schema()
             logging.basicConfig(
                 filename=f"{self.data_path}/schema.log",

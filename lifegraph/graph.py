@@ -9,7 +9,7 @@ import logging
 class Graph:
     def __init__(self, data_path=None):
         self.data_path = data_path
-        self.schema = Schema(data_path=data_path)
+        self.schema = Schema(data_path=self.data_path)
 
         if data_path is None:
             self.graph = {}
@@ -24,6 +24,9 @@ class Graph:
                 with open(type_fn, "r") as f:
                     graph.update(json.load(f))
         return graph
+
+    def flat(self, x):
+        return [item for sublist in x for item in sublist]
 
     def save_graph(self):
         data_types = set([self.graph[x]["@type"] for x in self.graph.keys()])
@@ -146,33 +149,100 @@ class Graph:
         except AssertionError:
             raise AssertionError(f"IDs point to more than one type: {', '.join(list(id_types))}.")
 
-    def categorical_aggregation_paths(self, ids):
-        self.raise_if_ids_not_the_same_type(ids)
-        # paths that could be used to aggregate a collection of ids into categorical groups
-
-        # in the future this will have to tolerate multiple pointed entities (i.e. multiple defense alliances)
-        ids_depth = [(0, x) for x in ids]
-        ids_to_explore = ids_depth
-        depth_groups = []
+    def search_out_from_id_property(self, id, property):
+        original_id, original_property = id, property
+        ids_to_explore = [(0, id, [property])]
+        paths_out = []
         while len(ids_to_explore) > 0:
-            id = ids_to_explore[0]
-            id_type = self.graph[id[1]]["@type"]
-            schema_expected_properties = self.schema.schema[id_type]["properties"]
-            for property in self.graph[id[1]].keys():
-                if property != "@type":
-                    if schema_expected_properties[property] not in self.schema.leaf_types and id_type != schema_expected_properties[property]:
-                        pointed_entity_id = self.graph[id[1]][property]
-                        ids_to_explore.append((id[0]+1, pointed_entity_id))
-                        depth_groups.append((id[0], property, self.graph[pointed_entity_id]["@type"], pointed_entity_id))
+            (depth, id, properties) = ids_to_explore[0]
+            id_type = self.graph[id]["@type"]
+            for property in properties:
+                schema_expected_type = self.schema.schema[id_type]["properties"][property]
+                if schema_expected_type not in self.schema.leaf_types:
+                    pointed_id = self.graph[id][property]
+                    pointed_id_type = self.graph[pointed_id]["@type"]
+                    pointed_id_properties = [x for x in self.schema.schema[pointed_id_type]["properties"].keys() if x != "@tyoe"]
+                    ids_to_explore.append((depth+1, pointed_id, pointed_id_properties))
+                    paths_out.append({
+                        "original_id": original_id,
+                        "original_property": original_property,
+                        "depth": depth,
+                        "pointing_property": property,
+                        "pointed_id": pointed_id,
+                        "pointed_id_type": pointed_id_type})
 
             del ids_to_explore[0]
-        depth_groups = pd.DataFrame(depth_groups, columns=["depth", "property", "type", "pointed_id"])
-        depth_groups_summarised = depth_groups.groupby(
-            ["depth", "property", "type"], as_index=False
+        return paths_out
+
+    def categorical_aggregation_groups(self, ids):
+        self.raise_if_ids_not_the_same_type(ids)
+        [self.raise_if_id_not_in_graph(x) for x in ids]
+
+        expected_properties = self.schema.schema[self.graph[ids[0]]["@type"]]["properties"].keys()
+        search_starts = []
+        for id in ids:
+            for property in expected_properties:
+                search_starts.append((id, property))
+
+        aggregation_paths = []
+        for id, property in search_starts:
+            agg_paths_out = self.search_out_from_id_property(id, property)
+            if agg_paths_out:
+                aggregation_paths.append(agg_paths_out)
+
+        return pd.DataFrame(self.flat(aggregation_paths))
+
+    def categorical_aggregation_paths(self, ids):
+        aggregation_groups = self.categorical_aggregation_groups(ids)
+        aggregation_paths = aggregation_groups.groupby(
+            ["depth", "pointing_property", "pointed_id_type"], as_index=False
         ).agg({"pointed_id": [pd.Series.nunique, "count"]})
-        depth_groups_summarised.columns = ["depth", "property", "aggregation_type", "n_groups", "aggregation_proportion"]
-        depth_groups_summarised["aggregation_proportion"] = depth_groups_summarised["aggregation_proportion"] / len(ids)
-        return depth_groups_summarised
+        aggregation_paths.columns = ["depth", "pointing_property", "aggregation_type", "n_groups", "aggregation_proportion"]
+        aggregation_paths["aggregation_proportion"] = aggregation_paths["aggregation_proportion"] / len(ids)
+        return aggregation_paths
+
+    def categorical_aggregation(self,
+        ids,
+        value_property,
+        aggregation_fun,
+        depth,
+        pointing_property,
+        aggregation_type):
+
+        aggregation_groups = self.categorical_aggregation_groups(ids)
+        aggregation_groups = aggregation_groups[
+            (aggregation_groups["depth"] == depth) &
+            (aggregation_groups["pointing_property"] == pointing_property) &
+            (aggregation_groups["pointed_id_type"] == aggregation_type)]
+
+        aggregated = []
+        for name, group in aggregation_groups.groupby("pointed_id"):
+            vals = [self.graph[x][value_property] for x in group["original_id"]]
+            aggregated.append({
+                "value": aggregation_fun(vals),
+                "group": name
+            })
+        return aggregated
+
+    def get_expected_pointed_type(self, id, property):
+        self.raise_if_id_not_in_graph(id)
+        entity_type = self.graph[id]["@type"]
+        return self.schema.schema[entity_type]["properties"][property]
+
+    def raise_if_id_not_expected_type(self, id, expected_type):
+        observed_type = self.graph[id]["@type"]
+        try:
+            assert observed_type == expected_type
+        except AssertionError:
+            raise AssertionError(f"Entity '{id}' has type '{observed_type}'. Expected type '{expected_type}'.")
+
+    def edit_property(self, id, property, value):
+        self.raise_if_id_not_in_graph(id)
+        # TODO: Also check that the schema has this property!
+        expected_type = self.get_expected_pointed_type(id, property)
+        if expected_type not in self.schema.leaf_types:
+            self.raise_if_id_not_expected_type(value, expected_type)
+        self.graph[id][property] = value
 
     # actually implement aggregation for given categorical aggregation(s)
 
@@ -198,11 +268,4 @@ class Graph:
     # but of course in the fucking real world - the UK is easily in both Europe and NATO. fucking fuck.
     # go get some paper from the printer and work this out
 
-
-if __name__ == '__main__':
-    graph = Graph(data_path="./data")
-    person_id = graph.create_from_type("person")
-    graph.create_from_copy(person_id)
-    print(graph.graph)
-
-    graph.save_graph()
+    # schema changes should result in changes to the graph - do this when this concept is working
