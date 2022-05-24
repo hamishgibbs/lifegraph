@@ -78,16 +78,18 @@ def chad_graph():
         depth=agg_paths.iloc[agg_path_i]["depth"],
         pointing_property=agg_paths.iloc[agg_path_i]["pointing_property"],
         aggregation_type=agg_paths.iloc[agg_path_i]["aggregation_type"])
+
     print(agg_result)
-
-
-
 
     #print(json.dumps(graph.graph, indent=4))
     # need to think / figure out how to handle missingness(unknownness) natively
-    # need to add generalisation (same hierarchy)
+    # need to add generalisation (same hierarchy level)
+    # handle date aggregation - yes (multivariate aggregations? - maybe not.)
+    # also how to persist results of aggregation
     # then - schema changes should propagate to the graph
-    #
+
+def time_with_children():
+    # agg by country, gender, and continent
 
 def main():
     chad_graph()

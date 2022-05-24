@@ -276,6 +276,19 @@ def test_categorical_aggregation(mock_graph_with_person_with_country_continent):
     graph.edit_property(country2, "continent", continent1)
     aggregation_paths = graph.categorical_aggregation_paths([person1, person2])
 
+    aggregations = [
+        {
+         "depth": aggregation_paths.iloc[0]["depth"],
+         "pointing_property": aggregation_paths.iloc[0]["pointing_property"],
+         "aggregation_type": aggregation_paths.iloc[0]["aggregation_type"]
+        },
+        {
+         "depth": aggregation_paths.iloc[1]["depth"],
+         "pointing_property": aggregation_paths.iloc[1]["pointing_property"],
+         "aggregation_type": aggregation_paths.iloc[1]["aggregation_type"]
+        }
+    ]
+
     def agg_fun_mean(vals):
         return statistics.mean(vals)
 
@@ -283,12 +296,10 @@ def test_categorical_aggregation(mock_graph_with_person_with_country_continent):
         ids = [person1, person2],
         value_property = "age",
         aggregation_fun = agg_fun_mean,
-        depth = aggregation_paths.iloc[0]["depth"],
-        pointing_property = aggregation_paths.iloc[0]["pointing_property"],
-        aggregation_type = aggregation_paths.iloc[0]["aggregation_type"])
+        aggregations = aggregations)
 
-    assert {"value": 18, "group": country1} in res
-    assert {"value": 22, "group": country2} in res
+    assert {"value": 18, "group": (country1, continent1)} in res
+    assert {"value": 22, "group": (country2, continent1)} in res
 
 def test_get_expected_pointed_type(mock_graph_with_person_hometown_schema):
     graph = mock_graph_with_person_hometown_schema

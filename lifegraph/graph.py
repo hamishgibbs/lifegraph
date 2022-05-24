@@ -5,6 +5,7 @@ from schema import Schema
 from fuzzywuzzy import process
 import pandas as pd
 import logging
+import functools as ft
 
 class Graph:
     def __init__(self, data_path=None):
@@ -205,18 +206,28 @@ class Graph:
         ids,
         value_property,
         aggregation_fun,
-        depth,
-        pointing_property,
-        aggregation_type):
+        aggregations):
 
         aggregation_groups = self.categorical_aggregation_groups(ids)
-        aggregation_groups = aggregation_groups[
-            (aggregation_groups["depth"] == depth) &
-            (aggregation_groups["pointing_property"] == pointing_property) &
-            (aggregation_groups["pointed_id_type"] == aggregation_type)]
+        aggregation_lookups = []
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            for i, aggregation in enumerate(aggregations):
+                aggregation_lookup = aggregation_groups[
+                    (aggregation_groups["depth"] == aggregation["depth"]) &
+                    (aggregation_groups["pointing_property"] == aggregation["pointing_property"]) &
+                    (aggregation_groups["pointed_id_type"] == aggregation["aggregation_type"])]
+                aggregation_lookup = aggregation_lookup[["original_id", "pointed_id"]]
+                aggregation_lookup.columns = ["original_id", f"aggregation_{i}"]
+                aggregation_lookups.append(aggregation_lookup)
+
+        aggregation_join_table = ft.reduce(
+            lambda left, right: pd.merge(left, right, how="left", on="original_id"),
+            aggregation_lookups)
+        group_columns = list(aggregation_join_table.drop("original_id", axis=1).columns)
 
         aggregated = []
-        for name, group in aggregation_groups.groupby("pointed_id"):
+
+        for name, group in aggregation_join_table.groupby(group_columns):
             vals = [self.graph[x][value_property] for x in group["original_id"]]
             aggregated.append({
                 "value": aggregation_fun(vals),
