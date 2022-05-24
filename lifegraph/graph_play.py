@@ -89,10 +89,79 @@ def chad_graph():
     # then - schema changes should propagate to the graph
 
 def time_with_children():
-    # agg by country, gender, and continent
+    graph = Graph(data_path=None)
+    # agg by country, gender, continent, and planet
+    graph.schema.create_type("human_gender_group")
+    graph.schema.create_type("estimated_time_to_raise_a_child")
+    graph.schema.create_type("country")
+    graph.schema.create_type("continent")
+    graph.schema.create_type("planet")
+    graph.schema.add_property("human_gender_group", "name", "string")
+    graph.schema.add_property("country", "name", "string")
+    graph.schema.add_property("country", "continent", "continent")
+    graph.schema.add_property("continent", "name", "string")
+    graph.schema.add_property("planet", "name", "string")
+    graph.schema.add_property("continent", "planet", "planet")
+    graph.schema.add_property("estimated_time_to_raise_a_child", "time_minutes", "integer")
+    graph.schema.add_property("estimated_time_to_raise_a_child", "country", "country")
+    graph.schema.add_property("estimated_time_to_raise_a_child", "human_gender_group", "human_gender_group")
+
+    gender1 = graph.create_from_type("human_gender_group")
+    gender2 = graph.create_from_type("human_gender_group")
+    graph.edit_property(gender1, "name", "Male")
+    graph.edit_property(gender2, "name", "Female")
+
+    country1 = graph.create_from_type("country")
+    country2 = graph.create_from_type("country")
+    continent1 = graph.create_from_type("continent")
+    continent2 = graph.create_from_type("continent")
+    planet1 = graph.create_from_type("planet")
+    graph.edit_property(country1, "name", "United Kingdom")
+    graph.edit_property(country2, "name", "United States")
+    graph.edit_property(continent1, "name", "Europe")
+    graph.edit_property(continent2, "name", "North America")
+    graph.edit_property(country1, "continent", continent1)
+    graph.edit_property(country2, "continent", continent2)
+    graph.edit_property(continent1, "planet", planet1)
+    graph.edit_property(continent2, "planet", planet1)
+
+    etrc1 = graph.create_from_type("estimated_time_to_raise_a_child")
+    etrc2 = graph.create_from_type("estimated_time_to_raise_a_child")
+    etrc3 = graph.create_from_type("estimated_time_to_raise_a_child")
+    etrc4 = graph.create_from_type("estimated_time_to_raise_a_child")
+
+    graph.edit_property(etrc1, "time_minutes", 55)
+    graph.edit_property(etrc1, "country", country1)
+    graph.edit_property(etrc1, "human_gender_group", gender1)
+
+    graph.edit_property(etrc2, "time_minutes", 32)
+    graph.edit_property(etrc2, "country", country1)
+    graph.edit_property(etrc2, "human_gender_group", gender2)
+
+    graph.edit_property(etrc3, "time_minutes", 57)
+    graph.edit_property(etrc3, "country", country2)
+    graph.edit_property(etrc3, "human_gender_group", gender1)
+
+    graph.edit_property(etrc4, "time_minutes", 20)
+    graph.edit_property(etrc4, "country", country2)
+    graph.edit_property(etrc4, "human_gender_group", gender2)
+
+    print(json.dumps(graph.graph, indent=4))
+    aggregation_ids = [etrc1, etrc2, etrc3, etrc4]
+    possible_aggregations = graph.categorical_aggregation_paths(aggregation_ids)
+    print(possible_aggregations)
+    aggregations = possible_aggregations.drop(["n_groups", "aggregation_proportion"], axis=1).to_dict('records')
+    print(json.dumps(aggregations[0], indent=4))
+
+    print(graph.categorical_aggregation(
+        ids = aggregation_ids,
+        value_property = "time_minutes",
+        aggregation_fun = agg_fun_mean,
+        aggregations = [aggregations[3]]))
+
 
 def main():
-    chad_graph()
+    time_with_children()
 
 if __name__ == "__main__":
     main()
