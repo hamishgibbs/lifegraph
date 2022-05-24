@@ -261,11 +261,4 @@ class Graph:
     # maybe there is a way to make this quicker without all of these fucking for loops in the future - no time now!!
     # try aggreation with some really partial information
 
-    # fuck fuck - this isn't working - because type enforcement isn't conducive to having a country
-    # be a member of a continent and a defense alliance (they are not even usefully the same type)
-    # is a continent an organisation? no. is a defense alliance a land area? no.
-    # fuck fuck.
-    # but of course in the fucking real world - the UK is easily in both Europe and NATO. fucking fuck.
-    # go get some paper from the printer and work this out
-
     # schema changes should result in changes to the graph - do this when this concept is working

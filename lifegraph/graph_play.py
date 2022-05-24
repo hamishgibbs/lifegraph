@@ -1,5 +1,9 @@
 import json
 from graph import Graph
+from statistics import mean
+
+def agg_fun_mean(vals):
+    return mean(vals)
 
 def chad_graph():
     graph = Graph(data_path=None)
@@ -27,6 +31,8 @@ def chad_graph():
     eor2 = graph.create_from_type("estimated_oil_reserves")
     eor3 = graph.create_from_type("estimated_oil_reserves")
     eor4 = graph.create_from_type("estimated_oil_reserves")
+    eor5 = graph.create_from_type("estimated_oil_reserves")
+    eor6 = graph.create_from_type("estimated_oil_reserves")
 
     graph.edit_property(eor1, "date", "2019")
     graph.edit_property(eor1, "barrels", 10_000_000)
@@ -44,10 +50,44 @@ def chad_graph():
     graph.edit_property(eor4, "barrels", 8_000_000)
     graph.edit_property(eor4, "country", country2)
 
-    print(graph.categorical_aggregation_paths([eor1, eor2, eor3, eor4]))
+    agg_ids = [eor1, eor2, eor3, eor4]
+    agg_paths = graph.categorical_aggregation_paths(agg_ids)
+    agg_path_i = 0
+    agg_result = graph.categorical_aggregation(
+        ids=agg_ids,
+        value_property="barrels",
+        aggregation_fun=agg_fun_mean,
+        depth=agg_paths.iloc[agg_path_i]["depth"],
+        pointing_property=agg_paths.iloc[agg_path_i]["pointing_property"],
+        aggregation_type=agg_paths.iloc[agg_path_i]["aggregation_type"])
+    print(agg_result)
+    graph.edit_property(eor5, "date", "2018")
+    graph.edit_property(eor5, "barrels", 1_000_000)
+    graph.edit_property(eor5, "country", country1)
+
+    graph.edit_property(eor6, "date", "2017")
+    graph.edit_property(eor6, "barrels", 1_000_000)
+    graph.edit_property(eor6, "country", country2)
+
+    agg_ids = [eor1, eor2, eor3, eor4, eor5, eor6]
+    agg_paths = graph.categorical_aggregation_paths(agg_ids)
+    agg_result = graph.categorical_aggregation(
+        ids=agg_ids,
+        value_property="barrels",
+        aggregation_fun=agg_fun_mean,
+        depth=agg_paths.iloc[agg_path_i]["depth"],
+        pointing_property=agg_paths.iloc[agg_path_i]["pointing_property"],
+        aggregation_type=agg_paths.iloc[agg_path_i]["aggregation_type"])
+    print(agg_result)
+
+
 
 
     #print(json.dumps(graph.graph, indent=4))
+    # need to think / figure out how to handle missingness(unknownness) natively
+    # need to add generalisation (same hierarchy)
+    # then - schema changes should propagate to the graph
+    #
 
 def main():
     chad_graph()
