@@ -80,6 +80,14 @@ def chad_graph():
         aggregation_type=agg_paths.iloc[agg_path_i]["aggregation_type"])
 
     print(agg_result)
+    # chad has ""
+    # chad's reserves are "an estimated one billion barrels of oil"
+    # chad produces "around 100,000 barrels of oil a day"
+    # oil is produced by "hundreds of rigs" "operated by Western companies such as Exxon-Mobil and Royal Dutch Shell"
+    # most of Chad's oil reserves are in the "Doba Basin in southern Chad"
+    # "Kuwait has a proven crude oil reserves of 104 billion barrels"
+    
+
 
     #print(json.dumps(graph.graph, indent=4))
     # need to think / figure out how to handle missingness(unknownness) natively
@@ -146,19 +154,15 @@ def time_with_children():
     graph.edit_property(etrc4, "country", country2)
     graph.edit_property(etrc4, "human_gender_group", gender2)
 
-    print(json.dumps(graph.graph, indent=4))
     aggregation_ids = [etrc1, etrc2, etrc3, etrc4]
     possible_aggregations = graph.categorical_aggregation_paths(aggregation_ids)
-    print(possible_aggregations)
     aggregations = possible_aggregations.drop(["n_groups", "aggregation_proportion"], axis=1).to_dict('records')
-    print(json.dumps(aggregations[0], indent=4))
 
     print(graph.categorical_aggregation(
         ids = aggregation_ids,
         value_property = "time_minutes",
         aggregation_fun = agg_fun_mean,
         aggregations = [aggregations[3]]))
-
 
 def main():
     time_with_children()

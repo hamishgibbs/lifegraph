@@ -255,21 +255,34 @@ class Graph:
             self.raise_if_id_not_expected_type(value, expected_type)
         self.graph[id][property] = value
 
-    # actually implement aggregation for given categorical aggregation(s)
+    # then actually try to use the graph for something messy & record the pain points (changing / migrating schema etc)
 
-
-    # change property on graph should be implemented to check that a property exists on an entity and
-    # make sure new thing points to the correct type, validate input data
-
-    # then actually try to the the graph for something simple, then something messy & record the pain points (changing / migrating schema etc)
-    # feeling like i don't exactly know what I am doing - do the simple things, then try to use it
-    # what is the application of the aggregation?
-
-    # swap - switch group chartacteristics at same level (i.e. gender male vs. gender female)
-    # query and generalise from graph
+    # generalise from graph
+        # this requires figuing out how to natively treat unknown values
+    # aggregate in time
     # migrate data to another type?
-    # integrate and test compute transformers against the current schema to ensure that they work
-    # maybe there is a way to make this quicker without all of these fucking for loops in the future - no time now!!
-    # try aggreation with some really partial information
+    # integrate and test "compute transformers" - may not be the way to think about it - logging can show how a series of data
+    # was transformed into new properties
+
+    # for generlisation - take an input set with some shared property
+    # and apply this property to the property of an output set given some shared type between the two sets
+    # Need to find what is common between two sets of entities - i.e. these point to the same entities
+    #
+    # categorical_generalisation_groups(input_set, output_set)
+    # This will use categorical_aggregation_groups twice and only return the
+    # groups that intersect eachother (are shared between both sets)
+    # i.e. consider estimating how much time is spent on housework in local authorities in the UK
+    # we have no number for the amount of time spent raising a child in local authorites but we have one nationally
+    # so we want to generalise the national value to the local authorities and fill in the UNKNOWN values
+    # on all of those properties
+    # So we get the "time to raise a child in the uk" entity (a value with disambiguation properties)
+    # then we get the "time to raise a child in the local authorities in the uk" entities (values with disambiguation properties)
+    # we find the aggregation paths of set 1 and set 2
+    # we find that these aggregation paths overlap for the @country type
+    # therefore, we can generalise from set 1 to set 2 using these shared entities as the overlap
+    # it is like a grouped assignment of values from one (smaller) set of entities to a larger one
+
+
+    # try aggregation with some really partial information
 
     # schema changes should result in changes to the graph - do this when this concept is working
